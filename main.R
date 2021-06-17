@@ -6,6 +6,11 @@ library(doSNOW)
 library(foreach)
 library(plyr)
 library(tictoc)
+
+library(mixtools)
+library(LaplacesDemon)
+library(nor1mix)
+
 source("RBF_approx_coeff.R")
 
 secondary_up_bids_offers_all = vroom("secondary_up_bids_offers_all.csv",col_types = list(datetime = col_character()))
@@ -456,4 +461,70 @@ tertiary_down_approx[[1]] = temp
 
 
 ###################################################################################
+# here is another way to represent the data: Instead of plotting QP plot, which is a plot show Q on x-axis and P on the y-axis 
+# we are interested in the PQ plot. Why do we study PQ plot? Because, we want to use the machinery of mixture distribution estimation. 
+secondary_up_bids_offers_all = vroom("secondary_up_bids_offers_all.csv",col_types = list(datetime = col_character()))
+colnames(secondary_up_bids_offers_all)[1] = "datetime"
+secondary_up_bids_offers_all = as.data.frame(secondary_up_bids_offers_all)
+
+secondary_up_bids_prices_all = vroom("secondary_up_bids_prices_all.csv",col_types = list(datetime = col_character()))
+colnames(secondary_up_bids_prices_all)[1] = "datetime"
+secondary_up_bids_prices_all = as.data.frame(secondary_up_bids_prices_all)
+
+Price = secondary_up_bids_prices_all[1,2:length(secondary_up_bids_prices_all)]
+Quantity = secondary_up_bids_offers_all[1,2:length(secondary_up_bids_offers_all)]
+
+
+########
+SPrice = UPrice[UPrice < 500]
+SQuant = UQuant[UPrice < 500]
+
+SQuant = SQuant/max(SQuant)
+plot(SPrice, SQuant, type = "p")
+Xmin = 0
+Xmax = max(SPrice)
+Xvals = Xmin + (Xmax - Xmin)*(0:999)/999
+PAppFc <- approxfun(SPrice,SQuant, method = "constant",f=0,rule=2,ties = max)
+P <- PAppFc(Xvals)
+lines(Xvals,P)
+
+p <- diff(c(0,SQuant))
+n <- min(round(1/min(p)), 1000)
+AbsoluteFrequency = round(p*n)
+n = sum(AbsoluteFrequency)
+Sample = matrix(NA, nrow = n, ncol = 1)
+k = 1
+for (i in 1:length(SPrice)){
+  Sample[k:(k+AbsoluteFrequency[i]-1),1] = SPrice[i]
+  k = k+AbsoluteFrequency[i]
+}
+plot(ecdf(Sample))
+points(SPrice, SQuant, col = "red")
+lines(Xvals, P, col = "red")
+
+# Normal mixture
+library(mixtools)
+mixmdl = normalmixEM(Sample, k = 5)
+#mixmdl = normalmixEM(Sample, mean.constr = c(5, 10, 50, 100, 200), k = 5)
+
+library(LaplacesDemon)
+p <- mixmdl$lambda
+mu <- mixmdl$mu
+sigma <- mixmdl$sigma
+x <- seq(from=0, to=max(Sample)+1, by=0.1)
+plot(ecdf(Sample))
+lines(x, pnormm(x, p, mu, sigma), col = "red") #CDF
+
+plot(UQuant[UPrice < 500], SPrice, type = "p")
+Xmin = 0
+Xmax = max(UQuant[UPrice < 500])
+Xvals = Xmin + (Xmax - Xmin)*(0:999)/999
+PAppFc <- approxfun(UQuant[UPrice < 500], SPrice, method = "constant",f=1,rule=2,ties = max)
+P <- PAppFc(Xvals)
+lines(Xvals,P)
+
+q = seq(from=0, to=1, by=0.005)
+library(nor1mix)
+nm <- norMix(mu = mu, sigma = sigma, w = p)
+lines(max(UQuant[UPrice < 500])*q, qnorMix(q, nm), col = "red") #ICDF
 
