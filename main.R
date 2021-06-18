@@ -474,17 +474,25 @@ secondary_up_bids_prices_all = as.data.frame(secondary_up_bids_prices_all)
 Price = secondary_up_bids_prices_all[1,2:length(secondary_up_bids_prices_all)]
 Quantity = secondary_up_bids_offers_all[1,2:length(secondary_up_bids_offers_all)]
 
+Price = t(Price)
+Price = na.omit(Price)
+Price = c(Price)
+
+Quantity = t(Quantity)
+Quantity = na.omit(Quantity)
+Quantity = c(Quantity)
+Quantity_cumsum = cumsum(Quantity)
 
 ########
-SPrice = UPrice[UPrice < 500]
-SQuant = UQuant[UPrice < 500]
+#SPrice = UPrice[UPrice < 500]
+#SQuant = UQuant[UPrice < 500]
 
-SQuant = SQuant/max(SQuant)
-plot(SPrice, SQuant, type = "p")
+SQuant = Quantity_cumsum/max(Quantity_cumsum)
+plot(Price, SQuant, type = "p")
 Xmin = 0
-Xmax = max(SPrice)
+Xmax = max(Price)
 Xvals = Xmin + (Xmax - Xmin)*(0:999)/999
-PAppFc <- approxfun(SPrice,SQuant, method = "constant",f=0,rule=2,ties = max)
+PAppFc <- approxfun(Price,SQuant, method = "constant",f=0,rule=2,ties = max)
 P <- PAppFc(Xvals)
 lines(Xvals,P)
 
@@ -494,8 +502,8 @@ AbsoluteFrequency = round(p*n)
 n = sum(AbsoluteFrequency)
 Sample = matrix(NA, nrow = n, ncol = 1)
 k = 1
-for (i in 1:length(SPrice)){
-  Sample[k:(k+AbsoluteFrequency[i]-1),1] = SPrice[i]
+for (i in 1:length(Price)){
+  Sample[k:(k+AbsoluteFrequency[i]-1),1] = Price[i]
   k = k+AbsoluteFrequency[i]
 }
 plot(ecdf(Sample))
@@ -515,16 +523,16 @@ x <- seq(from=0, to=max(Sample)+1, by=0.1)
 plot(ecdf(Sample))
 lines(x, pnormm(x, p, mu, sigma), col = "red") #CDF
 
-plot(UQuant[UPrice < 500], SPrice, type = "p")
+plot(Quantity_cumsum, Price, type = "p")
 Xmin = 0
-Xmax = max(UQuant[UPrice < 500])
+Xmax = max(Quantity_cumsum)
 Xvals = Xmin + (Xmax - Xmin)*(0:999)/999
-PAppFc <- approxfun(UQuant[UPrice < 500], SPrice, method = "constant",f=1,rule=2,ties = max)
+PAppFc <- approxfun(Quantity_cumsum, Price, method = "constant",f=1,rule=2,ties = max)
 P <- PAppFc(Xvals)
 lines(Xvals,P)
 
 q = seq(from=0, to=1, by=0.005)
 library(nor1mix)
 nm <- norMix(mu = mu, sigma = sigma, w = p)
-lines(max(UQuant[UPrice < 500])*q, qnorMix(q, nm), col = "red") #ICDF
+lines(max(Quantity_cumsum)*q, qnorMix(q, nm), col = "red") #ICDF
 
