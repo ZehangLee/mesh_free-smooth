@@ -511,11 +511,11 @@ points(SPrice, SQuant, col = "red")
 lines(Xvals, P, col = "red")
 
 # Normal mixture
-library(mixtools)
+
 mixmdl = normalmixEM(Sample, k = 5)
 #mixmdl = normalmixEM(Sample, mean.constr = c(5, 10, 50, 100, 200), k = 5)
 
-library(LaplacesDemon)
+
 p <- mixmdl$lambda
 mu <- mixmdl$mu
 sigma <- mixmdl$sigma
@@ -532,7 +532,7 @@ P <- PAppFc(Xvals)
 lines(Xvals,P)
 
 q = seq(from=0, to=1, by=0.005)
-library(nor1mix)
+
 nm <- norMix(mu = mu, sigma = sigma, w = p)
 lines(max(Quantity_cumsum)*q, qnorMix(q, nm), col = "red") #ICDF
 
