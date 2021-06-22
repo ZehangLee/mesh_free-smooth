@@ -471,68 +471,98 @@ secondary_up_bids_prices_all = vroom("secondary_up_bids_prices_all.csv",col_type
 colnames(secondary_up_bids_prices_all)[1] = "datetime"
 secondary_up_bids_prices_all = as.data.frame(secondary_up_bids_prices_all)
 
-Price = secondary_up_bids_prices_all[1,2:length(secondary_up_bids_prices_all)]
-Quantity = secondary_up_bids_offers_all[1,2:length(secondary_up_bids_offers_all)]
-
-Price = t(Price)
-Price = na.omit(Price)
-Price = c(Price)
-
-Quantity = t(Quantity)
-Quantity = na.omit(Quantity)
-Quantity = c(Quantity)
-Quantity_cumsum = cumsum(Quantity)
-
-########
-#SPrice = UPrice[UPrice < 500]
-#SQuant = UQuant[UPrice < 500]
-
-SQuant = Quantity_cumsum/max(Quantity_cumsum)
-plot(Price, SQuant, type = "p")
-Xmin = 0
-Xmax = max(Price)
-Xvals = Xmin + (Xmax - Xmin)*(0:999)/999
-PAppFc <- approxfun(Price,SQuant, method = "constant",f=0,rule=2,ties = max)
-P <- PAppFc(Xvals)
-lines(Xvals,P)
-
-p <- diff(c(0,SQuant))
-n <- min(round(1/min(p)), 1000)
-AbsoluteFrequency = round(p*n)
-n = sum(AbsoluteFrequency)
-Sample = matrix(NA, nrow = n, ncol = 1)
-k = 1
-for (i in 1:length(Price)){
-  Sample[k:(k+AbsoluteFrequency[i]-1),1] = Price[i]
-  k = k+AbsoluteFrequency[i]
+comb <- function(...) {
+  mapply(rbind.fill, ..., SIMPLIFY=FALSE)
 }
-plot(ecdf(Sample))
-points(SPrice, SQuant, col = "red")
-lines(Xvals, P, col = "red")
 
-# Normal mixture
+cl = makeSOCKcluster(6)
+registerDoSNOW(cl)
+iterations = 2#nrow(secondary_up_bids_offers_all)
+pb = txtProgressBar(max=iterations, style=3)
+progress = function(n) setTxtProgressBar(pb, n)
+opts = list(progress=progress)
 
-mixmdl = normalmixEM(Sample, k = 5)
-#mixmdl = normalmixEM(Sample, mean.constr = c(5, 10, 50, 100, 200), k = 5)
+
+tic()
+secondary_up_approx_MixModel = foreach(i = 1:iterations, .combine = comb, .options.snow = opts,.packages=c("mixtools","nor1mix"))%dopar%{
+  
+  Price = secondary_up_bids_prices_all[i,2:length(secondary_up_bids_prices_all)]
+  Quantity = secondary_up_bids_offers_all[i,2:length(secondary_up_bids_offers_all)]
+  
+  Price = t(Price)
+  Price = na.omit(Price)
+  Price = c(Price)
+  
+  Quantity = t(Quantity)
+  Quantity = na.omit(Quantity)
+  Quantity = c(Quantity)
+  Quantity_cumsum = cumsum(Quantity)
+  
+  
+  SQuant = Quantity_cumsum/max(Quantity_cumsum)
+  
+  p <- diff(c(0,SQuant))
+  n <- min(round(1/min(p)), 1000)
+  AbsoluteFrequency = round(p*n)
+  n = sum(AbsoluteFrequency)
+  Sample = matrix(NA, nrow = n, ncol = 1)
+  k = 1
+  for (i in 1:length(Price)){
+    Sample[k:(k+AbsoluteFrequency[i]-1),1] = Price[i]
+    k = k+AbsoluteFrequency[i]
+  }
+  
+  # Normal mixture
+  
+  mixmdl = normalmixEM(Sample, k = 5)
+  #mixmdl = normalmixEM(Sample, mean.constr = c(5, 10, 50, 100, 200), k = 5)
+  
+  
+  p <- mixmdl$lambda
+  mu <- mixmdl$mu
+  sigma <- mixmdl$sigma
+  x <- seq(from=0, to=max(Sample)+1, by=0.1)
+  
+  q = seq(from=0, to=1, by=0.005)
+  
+  nm <- norMix(mu = mu, sigma = sigma, w = p)
+  
+  aaa = 
+  res1 = data.frame(matrix(qnorMix(q, nm),nrow = 1))
+  res2 = data.frame(matrix(max(Quantity_cumsum)*q,nrow = 1))
+  list(res1, res2)
+}
+toc()
 
 
-p <- mixmdl$lambda
-mu <- mixmdl$mu
-sigma <- mixmdl$sigma
-x <- seq(from=0, to=max(Sample)+1, by=0.1)
-plot(ecdf(Sample))
-lines(x, pnormm(x, p, mu, sigma), col = "red") #CDF
+# i = 2
+# xxx = as.matrix(secondary_up_approx_MixModel[[2]][i,])
+# yyy = as.matrix(secondary_up_approx_MixModel[[1]][i,])
+# 
+# Price = secondary_up_bids_prices_all[1,2:length(secondary_up_bids_prices_all)]
+# Quantity = secondary_up_bids_offers_all[1,2:length(secondary_up_bids_offers_all)]
+# 
+# Price = t(Price)
+# Price = na.omit(Price)
+# Price = c(Price)
+# 
+# Quantity = t(Quantity)
+# Quantity = na.omit(Quantity)
+# Quantity = c(Quantity)
+# Quantity_cumsum = cumsum(Quantity)
+# 
+# plot(Quantity_cumsum, Price, type = "p")
+# Xmin = 0
+# Xmax = max(Quantity_cumsum)
+# Xvals = Xmin + (Xmax - Xmin)*(0:999)/999
+# PAppFc <- approxfun(Quantity_cumsum, Price, method = "constant",f=1,rule=2,ties = max)
+# P <- PAppFc(Xvals)
+# lines(Xvals,P)
+# 
+# lines(xxx, yyy, col = "red") #ICDF
 
-plot(Quantity_cumsum, Price, type = "p")
-Xmin = 0
-Xmax = max(Quantity_cumsum)
-Xvals = Xmin + (Xmax - Xmin)*(0:999)/999
-PAppFc <- approxfun(Quantity_cumsum, Price, method = "constant",f=1,rule=2,ties = max)
-P <- PAppFc(Xvals)
-lines(Xvals,P)
 
-q = seq(from=0, to=1, by=0.005)
 
-nm <- norMix(mu = mu, sigma = sigma, w = p)
-lines(max(Quantity_cumsum)*q, qnorMix(q, nm), col = "red") #ICDF
+
+
 
