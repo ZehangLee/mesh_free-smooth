@@ -29,7 +29,7 @@ comb <- function(...) {
 
 cl = makeSOCKcluster(6)
 registerDoSNOW(cl)
-iterations = nrow(secondary_up_bids_offers_all)
+iterations = 100#nrow(secondary_up_bids_offers_all)
 pb = txtProgressBar(max=iterations, style=3)
 progress = function(n) setTxtProgressBar(pb, n)
 opts = list(progress=progress)
@@ -61,6 +61,8 @@ secondary_up_approx = foreach(i = 1:iterations, .combine = comb, .options.snow =
 }
 toc()
 
+
+# visual check of approximations
 # i = 3
 # xxx = as.matrix(secondary_up_approx[[2]][i,])
 # yyy = as.matrix(secondary_up_approx[[1]][i,])
@@ -142,14 +144,15 @@ secondary_down_approx = foreach(i = 1:iterations, .combine = comb, .options.snow
   list(res1, res2)
   
 }
-#################################
-# be note that,the approximations are calculated by the absolution of q. This means we need map -q2_cumsum with the approximations
-#################################
+##################################################################
+# Note that,the approximations are calculated by the absolution 
+# of q. This means we need to use  -q2_cumsum when approximating
+##################################################################
 # plot(x= -x, y=Supply_approx,xlab = "quatity after cumulative sum", ylab = "price")
 # points(x= -q2_cumsum, y =p, pch='+',col = "red",cex=1.5 )
 
 
-# 
+# visual check of approximations
 # i = 9
 # xxx = as.matrix(secondary_down_approx[[2]][i,])
 # yyy = as.matrix(secondary_down_approx[[1]][i,])
@@ -171,7 +174,7 @@ secondary_down_approx = foreach(i = 1:iterations, .combine = comb, .options.snow
 # 
 # plot(x=-xxx, y=yyy,xlab = "quatity after cumulative sum", ylab = "price")
 # points(x=-q2_cumsum, y =p, pch='+',col = "red",cex=1.5 )
-# 
+
 
 
 
@@ -477,7 +480,7 @@ comb <- function(...) {
 
 cl = makeSOCKcluster(6)
 registerDoSNOW(cl)
-iterations = 2#nrow(secondary_up_bids_offers_all)
+iterations = 45770#nrow(secondary_up_bids_offers_all)
 pb = txtProgressBar(max=iterations, style=3)
 progress = function(n) setTxtProgressBar(pb, n)
 opts = list(progress=progress)
@@ -485,7 +488,7 @@ opts = list(progress=progress)
 
 tic()
 secondary_up_approx_MixModel = foreach(i = 1:iterations, .combine = comb, .options.snow = opts,.packages=c("mixtools","nor1mix"))%dopar%{
-  
+  set.seed(1)
   Price = secondary_up_bids_prices_all[i,2:length(secondary_up_bids_prices_all)]
   Quantity = secondary_up_bids_offers_all[i,2:length(secondary_up_bids_offers_all)]
   
@@ -514,7 +517,7 @@ secondary_up_approx_MixModel = foreach(i = 1:iterations, .combine = comb, .optio
   
   # Normal mixture
   
-  mixmdl = normalmixEM(Sample, k = 5)
+  mixmdl = normalmixEM(Sample, k = 5,maxit = 20000, epsilon = 1e-16,maxrestarts=1000)
   #mixmdl = normalmixEM(Sample, mean.constr = c(5, 10, 50, 100, 200), k = 5)
   
   
@@ -527,7 +530,7 @@ secondary_up_approx_MixModel = foreach(i = 1:iterations, .combine = comb, .optio
   
   nm <- norMix(mu = mu, sigma = sigma, w = p)
   
-  aaa = 
+  
   res1 = data.frame(matrix(qnorMix(q, nm),nrow = 1))
   res2 = data.frame(matrix(max(Quantity_cumsum)*q,nrow = 1))
   list(res1, res2)
@@ -535,16 +538,17 @@ secondary_up_approx_MixModel = foreach(i = 1:iterations, .combine = comb, .optio
 toc()
 
 
-# i = 2
+# visual check of approximations 
+# i = 10
 # xxx = as.matrix(secondary_up_approx_MixModel[[2]][i,])
 # yyy = as.matrix(secondary_up_approx_MixModel[[1]][i,])
 # 
-# Price = secondary_up_bids_prices_all[1,2:length(secondary_up_bids_prices_all)]
-# Quantity = secondary_up_bids_offers_all[1,2:length(secondary_up_bids_offers_all)]
+# Price = secondary_up_bids_prices_all[i,2:length(secondary_up_bids_prices_all)]
+# Quantity = secondary_up_bids_offers_all[i,2:length(secondary_up_bids_offers_all)]
 # 
 # Price = t(Price)
 # Price = na.omit(Price)
-# Price = c(Price)
+# Price = c(Price) 
 # 
 # Quantity = t(Quantity)
 # Quantity = na.omit(Quantity)

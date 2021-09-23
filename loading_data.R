@@ -85,6 +85,28 @@ rm(Secondary_up_bids,secondary_up_bids_sort)
 
 
 
+
+Secondary_up_allocation = secondary_ds %>%
+  filter(name == "Secondary reserve up allocation")
+
+secondary_up_allocation_sort = Secondary_up_allocation %>% drop_na() %>%
+  group_by(datetime) %>%
+  arrange(`Euro/MW`,.by_group = TRUE)
+
+secondary_up_allocation_offers_all =  secondary_up_allocation_sort %>%
+  dplyr::select(datetime, MW) %>%
+  mutate(row_id = row_number()) %>%
+  spread(datetime, MW) %>%
+  select(-row_id)
+
+secondary_up_allocation_offers_all = t(secondary_up_allocation_offers_all)
+secondary_up_allocation_offers_all = data.frame(secondary_up_allocation_offers_all)
+secondary_up_allocation_offers_all = secondary_up_allocation_offers_all %>% add_column(0, .before = 1)
+colnames(secondary_up_allocation_offers_all)[1] = "X0"
+secondary_up_allocation_offers_all = rownames_to_column(secondary_up_allocation_offers_all, var = "datetime")
+vroom_write(secondary_up_allocation_offers_all, "secondary_up_allocation_offers_all.csv",delim = ",")
+rm(Secondary_up_allocation,secondary_up_allocation_sort)
+
 # 3. generate quantity matrix and price matrix of the secondary market to down
 
 Secondary_down_bids = secondary_ds %>%
